@@ -27,6 +27,8 @@ class User(db.Model):
         self.public_id = uuid.uuid4()
         self.psw = generate_password_hash(kwargs.get('psw'), method="pbkdf2:sha256")
         self.role_id = Role.query.filter_by(name='User').first().id
+        self.name = kwargs.get('name')
+        self.departament_id = Departament.query.filter_by(name='default')
 
     def __repr__(self):
         return self.name
@@ -57,6 +59,9 @@ class GroupArticle(db.Model):
     __tablename__ = 'grouparticles'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
+    departament_id = db.Column(db.Integer, db.ForeignKey('departament.id'))
+
+    departament = db.relationship('Departament', backref='grouparticles')
 
 
 class Article(db.Model):

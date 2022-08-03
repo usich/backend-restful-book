@@ -1,5 +1,6 @@
 from flask_restful import Resource
-from flask import request, jsonify
+from marshmallow import validate
+from flask import request, jsonify, session
 from werkzeug.security import check_password_hash
 from models import User as dbUSer, Role as dbRole
 from flask_jwt_extended import create_access_token, jwt_required, decode_token
@@ -9,36 +10,53 @@ from models import db
 
 def is_admin(func):
     def wrapper(*args, **kwargs):
-        token = request.headers['Authorization'].split(' ')[1]
-        public_id = decode_token(encoded_token=token)['sub']
+        public_id = session['public_id']
+        if public_id is None:
+            return {'success': False, 'msg': 'Необходимо авторизоваться'}
         query_user = dbUSer.query.filter_by(public_id=public_id).one()
-
         if query_user.role.name == dbRole.query.filter_by(name='Admin').one().name:
             return func(*args, **kwargs)
 
-        return {'msg': 'Вы не являетесь администратором'}
+        return {'success': False, 'msg': 'Вы не являетесь администратором'}
+
+    return wrapper
+
+
+def validator_registration(func):
+    def wrapper(*args, **kwargs):
+        params = request.json
+        if params.get('email') is None or params.get('psw') is None or params.get('name') is None:
+            return {'success': False, 'msg': 'Переданы не все поля'}
+        email = params['email']
+        psw = params['psw']
+        name = params['name']
+        if len(dbUSer.query.filter_by(email=email).all()) != 0:
+            return {'success': False, 'msg': 'Email существует'}
+        try:
+            validate.Email()(email)
+        except Exception as ex:
+            return {'success': False, 'msg': 'Не валидный email'}
+        if len(psw) < 6:
+            return {'success': False, 'msg': 'Пароль должен быть более 6-ти символов'}
+        if len(name) < 3:
+            return {'success': False, 'msg': 'Имя должно содержать более 2-х символов'}
+
+        return func(*args, **kwargs)
 
     return wrapper
 
 
 class UserRegistration(Resource):
+    @validator_registration
     def post(self):
         params = request.json
-        email = params['email']
-
-        if len(dbUSer.query.filter_by(email=email).all()) != 0:
-            return {'msg': 'Email существует'}
-        if len(params['psw']) < 6:
-            return {'msg': 'Пароль должен быть более 6-ти символов'}
-        if len(params['name']) < 3:
-            return {'msg': 'Имя должно содержать более 2-х символов'}
         try:
             user = dbUSer(**params)
             db.session.add(user)
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            return {'msg': 'Произошла внутрення ошибка'}, 400
+            return {'success': False, 'msg': 'Произошла внутрення ошибка'}, 400
         return {'success': True}
 
 
@@ -49,20 +67,16 @@ class UserLogin(Resource):
         user = dbUSer.query.filter_by(email=auth.username).first()
 
         if not user or not check_password_hash(user.psw, auth.password):
-            return jsonify({'msg': 'Неверно введенный логин и/или пароль'})
+            return jsonify({'success': False, 'msg': 'Неверно введенный логин и/или пароль'})
 
         exp_time = datetime.timedelta(minutes=300)
         return {'access_token': create_access_token(user.public_id, expires_delta=exp_time)}
 
 
 class Users(Resource):
-    # def __init__(self):
-    #     self.token = request.headers['Authorization'].split(' ')[1]
-    #     self.public_id = decode_token(encoded_token=self.token)['sub']
-    #     self.query_user = dbUSer.query.filter_by(public_id=self.public_id).one()
 
+    # @is_admin
     @jwt_required()
-    @is_admin
     def get(self):
         users = dbUSer.query.all()
         result = {}
@@ -76,18 +90,17 @@ class Users(Resource):
 
 
 class User(Resource):
+    # @jwt_required()
     def __init__(self):
-        self.token = request.headers['Authorization'].split(' ')[1]
-        self.public_id = decode_token(encoded_token=self.token)['sub']
-        self.query_user = dbUSer.query.filter_by(public_id=self.public_id).one()
+        public_id = session['public_id']
+        self.query_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
 
-    @jwt_required()
-    # @is_admin
+    @is_admin
     def get(self):
         params = request.json
         email = params['email']
         find_user = dbUSer.query.filter_by(email=email).one()
-        res = {self.query_user.email: {
+        res = {find_user.email: {
             'name': find_user.name,
             'role': find_user.role.name,
             'departament': find_user.departament,
@@ -103,7 +116,7 @@ class User(Resource):
         name = request.json['name']
         if email != self.query_user.email:
             if admin != self.query_user.role:
-                return {'msg': 'Нет прав для изменения другого пользователя'}
+                return {'success': False, 'msg': 'Нет прав для изменения другого пользователя'}
 
         self.query_user.name = name
         db.session.commit()
@@ -112,12 +125,27 @@ class User(Resource):
 
     @jwt_required()
     @is_admin
+    @validator_registration
+    def post(self):
+        params = request.json
+        try:
+            user = dbUSer(**params)
+            db.session.add(user)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return {'success': False, 'msg': 'Произошла внутрення ошибка'}, 400
+        return {'success': True}
+
+    @jwt_required()
+    @is_admin
     def delete(self):
+
         return {}
 
 
 class Index(Resource):
-    # @jwt_required()
     def post(self):
-        print(request.json)
-        return {'index': 'index'}
+        email = request.json['email']
+        res = validate.Email(error='123123')(email)
+        return {'index': res}
