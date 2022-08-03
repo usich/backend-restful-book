@@ -9,7 +9,6 @@ from flask_cors import CORS
 from config import database_uri, secret_key, debug
 
 
-
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_uri

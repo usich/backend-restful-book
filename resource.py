@@ -3,6 +3,7 @@ from marshmallow import validate
 from flask import request, jsonify, session
 from werkzeug.security import check_password_hash
 from models import User as dbUSer, Role as dbRole
+from sqlalchemy.exc import NoResultFound
 from flask_jwt_extended import create_access_token, jwt_required, decode_token
 import datetime
 from models import db
@@ -22,14 +23,15 @@ def is_admin(func):
     return wrapper
 
 
-def validator_registration(func):
+def validator_user_data(func):
     def wrapper(*args, **kwargs):
         params = request.json
+
         if params.get('email') is None or params.get('psw') is None or params.get('name') is None:
             return {'success': False, 'msg': 'Переданы не все поля'}
-        email = params['email']
-        psw = params['psw']
-        name = params['name']
+        email = params.get('email')
+        psw = params.get('psw')
+        name = params.get('name')
         if len(dbUSer.query.filter_by(email=email).all()) != 0:
             return {'success': False, 'msg': 'Email существует'}
         try:
@@ -47,7 +49,7 @@ def validator_registration(func):
 
 
 class UserRegistration(Resource):
-    @validator_registration
+    @validator_user_data
     def post(self):
         params = request.json
         try:
@@ -90,7 +92,6 @@ class Users(Resource):
 
 
 class User(Resource):
-    # @jwt_required()
     def __init__(self):
         public_id = session['public_id']
         self.query_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
@@ -125,7 +126,7 @@ class User(Resource):
 
     @jwt_required()
     @is_admin
-    @validator_registration
+    @validator_user_data
     def post(self):
         params = request.json
         try:
@@ -138,10 +139,18 @@ class User(Resource):
         return {'success': True}
 
     @jwt_required()
-    @is_admin
+    # @is_admin
+    # @validator_user_data
     def delete(self):
-
-        return {}
+        print(request.json['email'])
+        params = request.json
+        try:
+            del_user = dbUSer.query.filter_by(email=params['email']).one()
+        except NoResultFound as e:
+            return {'success': False, 'msg': 'Пользователь с таким email не найден'}
+        db.session.delete(del_user)
+        db.session.commit()
+        return {'success': True}
 
 
 class Index(Resource):
