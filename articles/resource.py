@@ -55,16 +55,16 @@ class RArticle(Resource):
         public_id = session['public_id']
         self.query_user = dbUser.query.filter_by(public_id=public_id).one() if public_id is not None else None
 
-    def get(self):
+    def get(self, article_id):
         # res = request.json
         # print(res)
         return {'345': '2345'}
 
-    def post(self):
-        data = request.json
+    def put(self, article_id):
+        pass
 
-        add_article = 'Article()'
-        return {'s': '456'}
+    def delete(self, article_id):
+        pass
 
 
 class RArticles(Resource):
@@ -81,6 +81,12 @@ class RArticles(Resource):
                 'content': i.content
             }
         return data
+
+    def post(self):
+        data = request.json
+
+        add_article = 'Article()'
+        return {'s': '456'}
 
 
 class Index(Resource):

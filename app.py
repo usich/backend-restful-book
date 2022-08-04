@@ -1,9 +1,9 @@
 from flask import Flask, session, request
-from flask_restful import Api
+from flask_restful import Api, Resource
 from flask_migrate import Migrate
 from articles.app import articles_blueprint
 from models import db, User as dbUser
-from resource import UserLogin, UserRegistration, Index, Users, User
+from resource import UserLogin, UserRegistration, Index, Users, User, ProfileFoto
 from flask_jwt_extended import JWTManager, decode_token
 from flask_cors import CORS
 from config import database_uri, secret_key, debug
@@ -30,8 +30,9 @@ migrate = Migrate(app, db)
 api.add_resource(Index, '/')
 api.add_resource(UserLogin, '/login')
 api.add_resource(UserRegistration, '/registration')
-api.add_resource(Users, '/users')
-api.add_resource(User, '/user')
+api.add_resource(User, '/user/<int:user_id>')
+api.add_resource(Users, '/user')
+api.add_resource(ProfileFoto, '/upload/img_profile/<string:url_image>')
 
 
 @app.before_request

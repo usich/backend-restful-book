@@ -5,8 +5,8 @@ from articles.resource import RArticle, Index, RGroupArticle, RArticles
 articles_blueprint = Blueprint('api', __name__)
 api_db = Api(articles_blueprint)
 
-api_db.add_resource(RArticle, '/article')
-api_db.add_resource(RArticles, '/get-articles')
+api_db.add_resource(RArticles, '/article')
+api_db.add_resource(RArticle, '/article/<int:article_id>')
 api_db.add_resource(RGroupArticle, '/group-article')
 api_db.add_resource(Index, '/')
 

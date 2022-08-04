@@ -28,7 +28,7 @@ class User(db.Model):
         self.psw = generate_password_hash(kwargs.get('psw'), method="pbkdf2:sha256")
         self.role_id = Role.query.filter_by(name='User').first().id
         self.name = kwargs.get('name')
-        self.departament_id = Departament.query.filter_by(name='default')
+        self.departament_id = Departament.query.filter_by(name='default').one().id
 
     def __repr__(self):
         return self.name
@@ -46,7 +46,7 @@ class Role(db.Model):
 class Departament(db.Model):
     __tablename__ = 'departament'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100))
+    name = db.Column(db.String(100), nullable=False)
 
     def __repr__(self):
         return self.name
