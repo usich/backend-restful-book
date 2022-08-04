@@ -28,7 +28,8 @@ class User(db.Model):
         self.psw = generate_password_hash(kwargs.get('psw'), method="pbkdf2:sha256")
         self.role_id = Role.query.filter_by(name='User').first().id
         self.name = kwargs.get('name')
-        self.departament_id = Departament.query.filter_by(name='default').one().id
+        self.departament_id = Departament.query.filter_by(name='default').one().id,
+        self.foto_url = 'upload/img_profile/default.jpg'
 
     def __repr__(self):
         return self.name

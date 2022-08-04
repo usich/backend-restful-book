@@ -7,6 +7,7 @@ from flask_jwt_extended import create_access_token, jwt_required
 import datetime
 from models import db
 import os
+from flasgger.utils import swag_from
 
 
 def is_admin(func):
@@ -61,7 +62,10 @@ class UserRegistration(Resource):
             db.session.rollback()
             return {'success': False, 'msg': 'Произошла внутрення ошибка', 'text': str(e)}, 500
         return {'success': True,
-                'access_token': create_access_token(user.public_id, expires_delta=exp_time)}
+                'access_token': create_access_token(user.public_id, expires_delta=exp_time),
+                'name': user.name,
+                'email': user.email,
+                'foto_url': user.foto_url}
 
 
 class UserLogin(Resource):
@@ -74,12 +78,14 @@ class UserLogin(Resource):
             return jsonify({'success': False, 'msg': 'Неверно введенный логин и/или пароль'})
 
         exp_time = datetime.timedelta(minutes=1440)
-        return {'access_token': create_access_token(user.public_id, expires_delta=exp_time)}
+        return {'access_token': create_access_token(user.public_id, expires_delta=exp_time),
+                'name': user.name,
+                'email': user.email,
+                'foto_url': user.foto_url}
 
 
 class Users(Resource):
 
-    # @is_admin
     @jwt_required()
     def get(self):
         users = dbUSer.query.all()
@@ -106,7 +112,6 @@ class User(Resource):
         public_id = session['public_id']
         self.current_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
 
-    # @is_admin
     def get(self, user_id):
         find_user = dbUSer.query.filter_by(id=user_id).first()
         if find_user is None: return {'success': False}
@@ -173,10 +178,12 @@ class ProfileFoto(Resource):
 
 
 class Index(Resource):
+
     @jwt_required()
     def post(self):
         return {'index': '1'}
 
-    @jwt_required()
+    @swag_from('username_specs.yml', methods=['GET'])
     def get(self):
+
         return {}

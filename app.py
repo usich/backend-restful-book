@@ -1,12 +1,25 @@
+# from flask import Flask, session, request
+# from flask_restful import Api, Resource
+# from flask_migrate import Migrate
+# from articles.app import articles_blueprint
+# from models import db, User as dbUser
+# from resource import UserLogin, UserRegistration, Index, Users, User, ProfileFoto
+# from flask_jwt_extended import JWTManager, decode_token
+# from flask_cors import CORS
+# from config import database_uri, secret_key, debug
+# from flasgger import Swagger
+
 from flask import Flask, session, request
-from flask_restful import Api, Resource
+from flasgger import Swagger
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager, decode_token
 from flask_migrate import Migrate
+from flask_restful import Api
+
 from articles.app import articles_blueprint
+from config import database_uri, secret_key, debug
 from models import db, User as dbUser
 from resource import UserLogin, UserRegistration, Index, Users, User, ProfileFoto
-from flask_jwt_extended import JWTManager, decode_token
-from flask_cors import CORS
-from config import database_uri, secret_key, debug
 
 
 app = Flask(__name__)
@@ -18,6 +31,8 @@ app.config['SECRET_KEY'] = secret_key
 api = Api(app)
 
 app.register_blueprint(articles_blueprint, url_prefix='/api/v1/book')
+
+swagger = Swagger(app)
 
 jwt = JWTManager(app)
 
@@ -32,7 +47,9 @@ api.add_resource(UserLogin, '/login')
 api.add_resource(UserRegistration, '/registration')
 api.add_resource(User, '/user/<int:user_id>')
 api.add_resource(Users, '/user')
+# api.add_resource('', '/user/<int:user_id>/upload-foto')
 api.add_resource(ProfileFoto, '/upload/img_profile/<string:url_image>')
+# api.add_resource(Profile, '/profile')
 
 
 @app.before_request
