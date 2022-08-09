@@ -29,7 +29,7 @@ class User(db.Model):
         self.role_id = Role.query.filter_by(name='User').first().id
         self.name = kwargs.get('name')
         self.departament_id = Departament.query.filter_by(name='default').one().id,
-        self.foto_url = 'upload/img_profile/default.jpg'
+        self.foto_url = 'upload/img-profile/default.jpg'
 
     def __repr__(self):
         return self.name
@@ -70,6 +70,7 @@ class Article(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(db.Integer, db.ForeignKey('grouparticles.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    update_time = db.Column(db.DateTime, default=datetime.utcnow())
 
     group = db.relationship('GroupArticle', backref='article')
     user = db.relationship('User', backref='article')

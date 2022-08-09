@@ -2,6 +2,7 @@ from flask import Blueprint
 from flask_restful import Api
 from articles.resource import RArticle, Index, RGroupArticle, RArticles
 
+
 articles_blueprint = Blueprint('api', __name__)
 api_db = Api(articles_blueprint)
 

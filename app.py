@@ -1,14 +1,3 @@
-# from flask import Flask, session, request
-# from flask_restful import Api, Resource
-# from flask_migrate import Migrate
-# from articles.app import articles_blueprint
-# from models import db, User as dbUser
-# from resource import UserLogin, UserRegistration, Index, Users, User, ProfileFoto
-# from flask_jwt_extended import JWTManager, decode_token
-# from flask_cors import CORS
-# from config import database_uri, secret_key, debug
-# from flasgger import Swagger
-
 from flask import Flask, session, request
 from flasgger import Swagger
 from flask_cors import CORS
@@ -19,7 +8,8 @@ from flask_restful import Api
 from articles.app import articles_blueprint
 from config import database_uri, secret_key, debug
 from models import db, User as dbUser
-from resource import UserLogin, UserRegistration, Index, Users, User, ProfileFoto
+from resource import UserLogin, UserRegistration, Index, Users, User, ProfileFoto, EditProfileFoto
+from articles.resource import UploadImageArticleTemp, GetImageArticle
 
 
 app = Flask(__name__)
@@ -47,9 +37,12 @@ api.add_resource(UserLogin, '/login')
 api.add_resource(UserRegistration, '/registration')
 api.add_resource(User, '/user/<int:user_id>')
 api.add_resource(Users, '/user')
-# api.add_resource('', '/user/<int:user_id>/upload-foto')
-api.add_resource(ProfileFoto, '/upload/img_profile/<string:url_image>')
+api.add_resource(EditProfileFoto, '/user/<int:user_id>/upload-foto')
+api.add_resource(ProfileFoto, '/upload/img-profile/<string:url_image>')
 # api.add_resource(Profile, '/profile')
+
+api.add_resource(UploadImageArticleTemp, '/upload')
+api.add_resource(GetImageArticle, '/upload/<string:path_dir>/<string:url_image>')
 
 
 @app.before_request

@@ -1,3 +1,5 @@
+import json
+
 from flask_restful import Resource
 from marshmallow import validate
 from flask import request, jsonify, session, send_file
@@ -7,7 +9,6 @@ from flask_jwt_extended import create_access_token, jwt_required
 import datetime
 from models import db
 import os
-from flasgger.utils import swag_from
 
 
 def is_admin(func):
@@ -119,7 +120,7 @@ class User(Resource):
             'name': find_user.name,
             'email': find_user.email,
             'role': find_user.role.name,
-            'departament': find_user.departament,
+            # 'departament': find_user.departament,
             'public_id': find_user.public_id,
             'foto_url': find_user.foto_url
         }}
@@ -161,15 +162,15 @@ class ProfileFoto(Resource):
         public_id = session['public_id']
         self.current_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
 
-    @jwt_required()
-    def put(self, url_image):
-        if request.files.get('profile_img') is None: return {'msg': 'В запросе не передано изображение профиля'}, 400
-        file = request.files['profile_img']
-        if file:
-            file_path = f"upload/img_profile/{session['public_id']}.{file.filename.split('.')[-1]}"
-            file.save(os.path.join('upload/img_profile', f"{session['public_id']}.{file.filename.split('.')[-1]}"))
-
-            self.current_user.foto_url = file_path
+    # @jwt_required()
+    # def put(self, url_image):
+    #     if request.files.get('profile_img') is None: return {'msg': 'В запросе не передано изображение профиля'}, 400
+    #     file = request.files['profile_img']
+    #     if file:
+    #         file_path = f"upload/img_profile/{session['public_id']}.{file.filename.split('.')[-1]}"
+    #         file.save(os.path.join('upload/img_profile', f"{session['public_id']}.{file.filename.split('.')[-1]}"))
+    #
+    #         self.current_user.foto_url = file_path
 
     def get(self, url_image):
         if not os.path.exists(f'upload/img_profile/{url_image}'):
@@ -177,13 +178,33 @@ class ProfileFoto(Resource):
         return send_file(f'upload/img_profile/{url_image}', mimetype='image/gif')
 
 
+class EditProfileFoto(Resource):
+    def __init__(self):
+        public_id = session['public_id']
+        self.current_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
+
+    @jwt_required()
+    def put(self, user_id):
+        if user_id != self.current_user.id: return {'msg': 'Нет прав для изменения фото этого юзера'}
+        if request.files.get('profile_img') is None: return {'msg': 'В запросе не передано изображение профиля'}, 400
+        file = request.files['profile_img']
+        if file:
+            file_path = f"upload/img_profile/{session['public_id']}.{file.filename.split('.')[-1]}"
+            file.save(os.path.join('upload/img_profile', f"{session['public_id']}.{file.filename.split('.')[-1]}"))
+
+            self.current_user.foto_url = file_path
+        return {'success': True}, 201
+
+
 class Index(Resource):
 
     @jwt_required()
     def post(self):
-        return {'index': '1'}
+        print(request.json)
+        with open('res.json', 'w') as f:
+            json.dump(request.json, f, indent=4)
+        return request.json
 
-    @swag_from('username_specs.yml', methods=['GET'])
     def get(self):
 
-        return {}
+        return {'2':request.base_url}
