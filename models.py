@@ -64,6 +64,9 @@ class GroupArticle(db.Model):
 
     departament = db.relationship('Departament', backref='grouparticles')
 
+    def __repr__(self):
+        return self.name
+
 
 class Article(db.Model):
     __tablename__ = 'articles'
@@ -71,13 +74,17 @@ class Article(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('grouparticles.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     update_time = db.Column(db.DateTime, default=datetime.utcnow())
+    tags = db.Column(db.String)
+    departament_id = db.Column(db.Integer, db.ForeignKey('departament.id'))
+    departament_test = db.Column(db.String)
 
     group = db.relationship('GroupArticle', backref='article')
     user = db.relationship('User', backref='article')
+    departament = db.relationship('Departament', backref='article')
 
-    head = db.Column(db.Text, nullable=False)
+    title = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text, nullable=False)
-    content = db.Column(db.Text, nullable=False)
+    blog_data = db.Column(db.Text, nullable=False)
 
 
 '''Articles END'''

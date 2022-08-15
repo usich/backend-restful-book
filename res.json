@@ -1,18 +1,18 @@
 {
     "title": "123123",
     "blogData": {
-        "time": 1659964729685,
+        "time": 1660112039469,
         "blocks": [
             {
-                "id": "y9VWJ59ecr",
+                "id": "hNHG4OWnVm",
                 "type": "image",
                 "data": {
                     "file": {
-                        "url": "http://192.168.0.203:8787/api/v1/book/upload/temp/418bacfc-e382-4eaf-81ea-c6fdc1b4bd0f.jpg"
+                        "url": "http://192.168.0.203:8787/upload/temp/9fbb8935-ab4e-420f-9afb-a0946dd55f12.jpg"
                     },
-                    "caption": "test",
+                    "caption": "",
                     "withBorder": false,
-                    "stretched": false,
+                    "stretched": true,
                     "withBackground": false
                 }
             }

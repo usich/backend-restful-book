@@ -13,17 +13,21 @@ def is_admin(func):
     def wrapper(*args, **kwargs):
         public_id = session['public_id']
         if public_id is None:
-            return {'success': False, 'msg': 'Необходимо авторизоваться'}
+            return {'success': False, 'msg': 'Необходимо авторизоваться'}, 403
         query_user = dbUser.query.filter_by(public_id=public_id).one()
         if query_user.role.name == dbRole.query.filter_by(name='Admin').one().name:
             return func(*args, **kwargs)
 
-        return {'success': False, 'msg': 'Вы не являетесь администратором'}
+        return {'success': False, 'msg': 'Вы не являетесь администратором'}, 403
 
     return wrapper
 
 
 class RGroupArticle(Resource):
+    def __init__(self):
+        public_id = session['public_id']
+        self.current_user = dbUser.query.filter_by(public_id=public_id).one() if public_id is not None else None
+
     @jwt_required()
     def post(self):
         if request.json.get('name') is None:
@@ -44,14 +48,24 @@ class RGroupArticle(Resource):
         params = request.json
         group_id = params.get('group_id')
         group_name = params.get('group_name')
-        if group_id is None or group_name is None: return {'success': False, 'msg': 'Не передан id изменяемой группы'}
+        if group_id is None or group_name is None:
+            return {'success': False, 'msg': 'Не передан id изменяемой группы'}, 400
         try:
             edit_group = dbGroupArticle.query.filter_by(id=group_id).one()
             edit_group.name = group_name
             db.session.commit()
             return {'success': True}
         except Exception as e:
-            return {'msg': 'Внутренняя ошибка', 'e': str(e)}
+            return {'msg': 'Внутренняя ошибка', 'e': str(e)}, 500
+
+    @jwt_required()
+    def get(self):
+        params = request.args
+        departament_id = params.get('departament_id')
+        if departament_id is None: return {'msg': 'Не переданы параметр департамента'}, 400
+        group_list = dbGroupArticle.query.filter_by(departament_id=departament_id).all()
+        data = [{'id': i.id, 'name': i.name} for i in group_list]
+        return data
 
 
 class RArticle(Resource):
@@ -62,15 +76,14 @@ class RArticle(Resource):
 
     def get(self, article_id):
         find_article = dbArticle.query.filter_by(id=article_id).first()
-        if find_article is None: return {'msg': 'Запись с таким id не найдена'}, 401
-        data = {find_article.id: {
+        if find_article is None: return {'msg': 'Запись с таким id не найдена'}, 400
+        data = {
             'group': find_article.group.name,
             'user': find_article.user_id,
-            'head': find_article.head,
-            'description': find_article.descriptino,
-            'content': json.loads(find_article.content)
-
-        }}
+            'title': find_article.title,
+            'description': find_article.description,
+            'blogData': json.loads(find_article.blog_data)
+        }
         return data, 401
 
     def put(self, article_id):
@@ -90,17 +103,18 @@ class RArticles(Resource):
 
     @jwt_required()
     def get(self):
-        articles = dbArticle.query.all()
-        data = {}
+        params = request.args
+        if params.get('group_id') is None: return {'msg': 'Не передан параметр группы'}, 400
+        articles = dbArticle.query.filter_by(group_id=params['group_id'])
+        data = []
         for i in articles:
-            data[i.id] = {
-                'article_id': i.id,
-                'user_id': i.user_id,
-                'group_id': i.group_id,
-                'head': i.head,
-                'description': i.description,
-                'content': json.loads(i.content)
-            }
+            data.append({
+                'articleId': i.id,
+                'userId': i.user_id,
+                'groupId': i.group_id,
+                'title': i.title,
+                'description': i.description
+            })
         return data
 
     @jwt_required()
@@ -109,25 +123,31 @@ class RArticles(Resource):
         user_id = self.current_user.id
         try:
             group_id = params['group_id']
-            head = params['head']
+            title = params['title']
             description = params['description']
-            content = params['content']
+            blog_data = params['blogData']
+            visible_depart = params['list_depart']
+            if self.current_user.role_id != 1:
+                departament_id = self.current_user.departament_id
+            else:
+                departament_id = params['departament_id'] if params.get('departament_id') is not None else 0
         except Exception as e:
-            return {'msg': 'переданы не все поля в body'}, 401
+            return {'msg': 'переданы не все поля в body'}, 400
+        try:
+            for i in blog_data['blocks']:
+                if i['type'] == 'image':
+                    img_temp = i['data']['file']['url'].split('/')[-1]
+                    shutil.move(f'upload/temp/{img_temp}', f'upload/image_article/{img_temp}')
+                    i['data']['file']['url'] = f'http://192.168.0.203:8787/upload/image-article/{img_temp}'
 
-        blocks = content['blogData']['blocks']
-        for i in blocks:
-            if i['type'] == 'image':
-                img_temp = i['data']['file']['url'].split('/')[-1]
-                shutil.move(f'upload/temp/{img_temp}', f'upload/image_article/{img_temp}')
-                i['data']['file']['url'] = f'http://192.168.0.203:8787/upload/image-article/{img_temp}'
+            add_articles = dbArticle(user_id=user_id, group_id=group_id, title=title, description=description,
+                                     blog_data=json.dumps(blog_data), departament_id=departament_id)
+            db.session.add(add_articles)
+            db.session.commit()
 
-        add_articles = dbArticle(user_id=user_id, group_id=group_id, head=head, description=description,
-                                 content=json.dumps(content))
-        db.session.add(add_articles)
-        db.session.commit()
-
-        return {'success': True}
+            return {'success': True}
+        except Exception as e:
+            return {'msg': str(e)}, 500
 
 
 class UploadImageArticleTemp(Resource):
@@ -138,15 +158,14 @@ class UploadImageArticleTemp(Resource):
 
     def post(self):
         print(request.files)
-        if request.files.get('image') is None: return {'msg': 'Не передано изображение'}, 401
+        if request.files.get('image') is None: return {'msg': 'Не передано изображение'}, 400
         file = request.files['image']
         file_name = f"{uuid.uuid4()}.{file.filename.split('.')[-1]}"
         if file:
             file_path = f"upload/temp/{file_name}"
             file.save(os.path.join('upload/temp/', f"{file_name}"))
 
-        return {'success': True, 'file': {'url': f'{request.base_url}/temp/{file_name}'},
-                'temp_image': True}
+        return {'success': True, 'file': {'url': f'{request.base_url}/temp/{file_name}'}}
 
 
 class GetImageArticle(Resource):

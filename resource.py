@@ -1,14 +1,16 @@
 import json
+import time
 
 from flask_restful import Resource
 from marshmallow import validate
 from flask import request, jsonify, session, send_file
 from werkzeug.security import check_password_hash, generate_password_hash
-from models import User as dbUSer, Role as dbRole
+from models import User as dbUSer, Role as dbRole, Departament as dbDepartament, GroupArticle as dbGroupArticle
 from flask_jwt_extended import create_access_token, jwt_required
 import datetime
 from models import db
 import os
+from flasgger import swag_from
 
 
 def is_admin(func):
@@ -20,7 +22,7 @@ def is_admin(func):
         if query_user.role.name == dbRole.query.filter_by(name='Admin').one().name:
             return func(*args, **kwargs)
 
-        return {'success': False, 'msg': 'Вы не являетесь администратором'}, 401
+        return {'success': False, 'msg': 'Вы не являетесь администратором'}, 403
 
     return wrapper
 
@@ -76,13 +78,15 @@ class UserLogin(Resource):
         user = dbUSer.query.filter_by(email=auth.username).first()
 
         if not user or not check_password_hash(user.psw, auth.password):
-            return jsonify({'success': False, 'msg': 'Неверно введенный логин и/или пароль'})
+            return {'success': False, 'msg': 'Неверно введенный логин и/или пароль'}, 401
 
         exp_time = datetime.timedelta(minutes=1440)
+        admin = True if user.role_id == 1 else False
         return {'access_token': create_access_token(user.public_id, expires_delta=exp_time),
                 'name': user.name,
                 'email': user.email,
-                'foto_url': user.foto_url}
+                'foto_url': user.foto_url,
+                'is_admin': admin}
 
 
 class Users(Resource):
@@ -133,7 +137,7 @@ class User(Resource):
         admin = dbRole.query.filter_by(name='Admin').one()
         if find_user.email != self.current_user.email:
             if admin != self.current_user.role:
-                return {'success': False, 'msg': 'Нет прав для изменения другого пользователя'}
+                return {'success': False, 'msg': 'Нет прав для изменения другого пользователя'}, 403
 
         if request.json.get('name') is not None: find_user.name = request.json.get('name')
         if request.json.get('foto_url') is not None: find_user.name = request.json.get('foto_url')
@@ -141,7 +145,7 @@ class User(Resource):
             if check_password_hash(find_user.psw, request.json['old_psw']):
                 find_user.psw = generate_password_hash(request.json.get('psw'), method="pbkdf2:sha256")
             else:
-                return {'success': False, 'msg': 'Введен неверный старый пароль'}
+                return {'success': False, 'msg': 'Введен неверный старый пароль'}, 400
         db.session.commit()
 
         return {'success': True}
@@ -151,7 +155,7 @@ class User(Resource):
     def delete(self, user_id):
         del_user = dbUSer.query.filter_by(id=user_id).first()
         if del_user is None:
-            return {'success': False, 'msg': 'Пользователь с таким id не найден'}
+            return {'success': False, 'msg': 'Пользователь с таким id не найден'}, 404
         db.session.delete(del_user)
         db.session.commit()
         return {'success': True}
@@ -196,15 +200,46 @@ class EditProfileFoto(Resource):
         return {'success': True}, 201
 
 
-class Index(Resource):
+class Departament(Resource):
+    def __init__(self):
+        public_id = session['public_id']
+        self.current_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
 
     @jwt_required()
+    def get(self):
+
+        groups = {}
+        for i in dbGroupArticle.query.all():
+            if groups.get(i.departament_id) is None:
+                groups[i.departament_id] = [{'name': i.name, 'id': i.id}]
+            else:
+                groups[i.departament_id].append({'name': i.name, 'id': i.id})
+
+        if self.current_user.role_id == 1:
+            data = [{'id': i.id, 'name': i.name, 'groups': groups.get(i.id)} for i in dbDepartament.query.all()]
+            return data
+
+        data = [{'id': self.current_user.departament.id, 'name': self.current_user.departament.name,
+                 'groups': groups.get(self.current_user.departament.id)},
+                {'id': dbDepartament.query.filter_by(id=0).one().id,
+                 'name': dbDepartament.query.filter_by(id=0).one().name,
+                 'groups': groups.get(dbDepartament.query.filter_by(id=0).one().id)}]
+        return data
+
+
+class Index(Resource):
+    def __init__(self):
+        public_id = session['public_id']
+        self.current_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
+
+    # @jwt_required()
+    # @swag_from('yaml/schema.yml')
     def post(self):
         print(request.json)
         with open('res.json', 'w') as f:
             json.dump(request.json, f, indent=4)
         return request.json
 
+    # @swag_from('yaml/schema.yml')
     def get(self):
-
-        return {'2':request.base_url}
+        return {'2': 'n'}
