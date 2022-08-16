@@ -3,7 +3,7 @@ import uuid
 
 from flask_restful import Resource
 from flask import session, request, send_file
-from flask_jwt_extended import jwt_required, decode_token
+from flask_jwt_extended import jwt_required
 from models import Article as dbArticle, User as dbUser, GroupArticle as dbGroupArticle, db, Role as dbRole
 import os
 import shutil
@@ -11,15 +11,11 @@ import shutil
 
 def is_admin(func):
     def wrapper(*args, **kwargs):
-        public_id = session['public_id']
-        if public_id is None:
-            return {'success': False, 'msg': 'Необходимо авторизоваться'}, 403
-        query_user = dbUser.query.filter_by(public_id=public_id).one()
-        if query_user.role.name == dbRole.query.filter_by(name='Admin').one().name:
+        if session['is_admin'] is None:
+            return {'success': False, 'msg': 'Необходимо авторизоваться'}, 401
+        elif session['is_admin']:
             return func(*args, **kwargs)
-
         return {'success': False, 'msg': 'Вы не являетесь администратором'}, 403
-
     return wrapper
 
 
@@ -69,33 +65,58 @@ class RGroupArticle(Resource):
 
 
 class RArticle(Resource):
-    # @jwt_required()
+    @jwt_required()
     def __init__(self):
         public_id = session['public_id']
         self.current_user = dbUser.query.filter_by(public_id=public_id).one() if public_id is not None else None
 
     def get(self, article_id):
         find_article = dbArticle.query.filter_by(id=article_id).first()
-        if find_article is None: return {'msg': 'Запись с таким id не найдена'}, 400
+        if find_article is None:
+            return {'msg': 'Запись с таким id не найдена'}, 400
         data = {
-            'group': find_article.group.name,
+            'group': find_article.group if find_article.group is None else find_article.group.name,
             'user': find_article.user_id,
             'title': find_article.title,
             'description': find_article.description,
             'blogData': json.loads(find_article.blog_data)
         }
-        return data, 401
+        return data
 
     def put(self, article_id):
-        pass
+        find_article = dbArticle.query.filter_by(id=article_id).first()
+        if find_article is None:
+            return {'msg': 'Запись с таким id не найдена'}, 400
+        params = request.json
+        try:
+            if params.get('title') is not None: find_article.title = params['title']
+            if params.get('description') is not None: find_article.title = params['description']
+            if params.get('blogData') is not None:
+                find_article.title = params['blogData']
+            db.session.commit()
+            return {'success': True}
+        except Exception as e:
+            return {'msg': 'Внутренняя ошибка', 'success': False}, 500
 
     def delete(self, article_id):
-        pass
+        find_article = dbArticle.query.filter_by(id=article_id).first()
+        if find_article is None:
+            return {'msg': 'Запись с таким id не найдена'}, 400
+
+        try:
+            if session['is_admin'] or self.current_user.id == find_article.user_id:
+                db.session.delete(find_article)
+                db.session.commit()
+                return {'success': True}
+            else:
+                return {'msg': 'Нет прав для удаление этой записи', 'success': False}, 403
+        except Exception as e:
+            return {'msg': 'Внутренняя ошибка', 'success': False, 'txt': str(e)}, 500
 
 
 class RArticles(Resource):
     """
-    endpoint = '/article'
+        endpoint = '/article'
     """
     def __init__(self):
         public_id = session['public_id']
@@ -104,8 +125,13 @@ class RArticles(Resource):
     @jwt_required()
     def get(self):
         params = request.args
-        if params.get('group_id') is None: return {'msg': 'Не передан параметр группы'}, 400
-        articles = dbArticle.query.filter_by(group_id=params['group_id'])
+
+        if params.get('group_id') is None and params.get('departament_id'):
+            articles = dbArticle.query.filter_by(departament_id=params['departament_id'], group_id=None).all()
+        elif params.get('group_id') and params.get('departament_id') is None:
+            articles = dbArticle.query.filter_by(group_id=params['group_id']).all()
+        else:
+            return {'success': False, 'msg': 'Не переданы параметры запроса'}, 400
         data = []
         for i in articles:
             data.append({
@@ -121,16 +147,13 @@ class RArticles(Resource):
     def post(self):
         params = request.json
         user_id = self.current_user.id
+        group_id = params.get('group_id')
         try:
-            group_id = params['group_id']
             title = params['title']
             description = params['description']
             blog_data = params['blogData']
-            visible_depart = params['list_depart']
-            if self.current_user.role_id != 1:
-                departament_id = self.current_user.departament_id
-            else:
-                departament_id = params['departament_id'] if params.get('departament_id') is not None else 0
+
+            departament_id = params['departament_id']
         except Exception as e:
             return {'msg': 'переданы не все поля в body'}, 400
         try:
@@ -152,12 +175,11 @@ class RArticles(Resource):
 
 class UploadImageArticleTemp(Resource):
     """
-    Endpoint этого ресурса находиться в основном приложении
-    api.add_resource(UploadImageArticleTemp, '/upload')
+        Endpoint этого ресурса находиться в основном приложении
+        api.add_resource(UploadImageArticleTemp, '/upload')
     """
 
     def post(self):
-        print(request.files)
         if request.files.get('image') is None: return {'msg': 'Не передано изображение'}, 400
         file = request.files['image']
         file_name = f"{uuid.uuid4()}.{file.filename.split('.')[-1]}"

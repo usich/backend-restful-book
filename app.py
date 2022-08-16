@@ -85,12 +85,14 @@ def before_request():
         public_id = decode_token(encoded_token=token)['sub']
         query_user = dbUser.query.filter_by(public_id=public_id).one()
         session['public_id'] = query_user.public_id
-        session['user'] = {'name': query_user.name,
-                           'email': query_user.email,
-                           'role': query_user.id}
-        # session['userdb'] = json.dumps(query_user)
+        session['is_admin'] = True if query_user.role.name == "Admin" else False
+
+        # session['user'] = {'name': query_user.name,
+        #                    'email': query_user.email,
+        #                    'role': query_user.role_id}
     except Exception as e:
         session['public_id'] = None
+        session['is_admin'] = None
 
 
 if __name__ == '__main__':

@@ -15,13 +15,15 @@ from flasgger import swag_from
 
 def is_admin(func):
     def wrapper(*args, **kwargs):
-        public_id = session['public_id']
-        if public_id is None:
+        # public_id = session['public_id']
+        # if public_id is None:
+        #     return {'success': False, 'msg': 'Необходимо авторизоваться'}, 401
+        # query_user = dbUSer.query.filter_by(public_id=public_id).one()
+        # if query_user.role.name == dbRole.query.filter_by(name='Admin').one().name:
+        if session['is_admin'] is None:
             return {'success': False, 'msg': 'Необходимо авторизоваться'}, 401
-        query_user = dbUSer.query.filter_by(public_id=public_id).one()
-        if query_user.role.name == dbRole.query.filter_by(name='Admin').one().name:
+        elif session['is_admin']:
             return func(*args, **kwargs)
-
         return {'success': False, 'msg': 'Вы не являетесь администратором'}, 403
 
     return wrapper
@@ -233,7 +235,7 @@ class Index(Resource):
         self.current_user = dbUSer.query.filter_by(public_id=public_id).one() if public_id is not None else None
 
     # @jwt_required()
-    # @swag_from('yaml/schema.yml')
+    @swag_from('yaml/schema.yml')
     def post(self):
         print(request.json)
         with open('res.json', 'w') as f:
