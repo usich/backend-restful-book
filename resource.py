@@ -151,7 +151,7 @@ class User(Resource):
     def delete(self, user_id):
         del_user = dbUSer.query.filter_by(id=user_id).first()
         if del_user is None:
-            return {'msg': 'Пользователь с таким id не найден'}, 404
+            return {'msg': 'Пользователь с таким id не найден'}, 400
         db.session.delete(del_user)
         db.session.commit()
         return {}
@@ -187,6 +187,24 @@ class EditProfileFoto(Resource):
         db.session.commit()
         return {}, 201
 
+    @jwt_required()
+    def delete(self, user_id):
+        if user_id != self.current_user.id: return {'msg': 'Нет прав для изменения фото этого юзера'}
+        default_foto = '/upload/img-profile/default.jpg'
+        if self.current_user.foto_url == default_foto:
+            return {'msg': 'Ты че ёпта, фотки и так нет. Удалять нечего'}, 400
+        try:
+            file_name = self.current_user.foto_url.split("/")[-1]
+            if os.path.isfile(f'upload/img_profile/{file_name}'):
+                os.remove(f'upload/img_profile/{file_name}')
+            else:
+                return {'msg': 'Внутренняя ошибка', 's': file_name}, 500
+            self.current_user.foto_url = default_foto
+            db.session.commit()
+        except Exception as e:
+            return {'msg': 'Ошибка БД'}, 500
+        return {}
+
 
 class Departament(Resource):
     def __init__(self):
@@ -215,16 +233,32 @@ class Departament(Resource):
         return data
 
     @jwt_required()
+    @is_admin
     def post(self):
 
         params = request.json
-        if params.get('name') is None: return {'msg': 'Не передано имя параметра'}, 401
+        if params.get('name') is None: return {'msg': 'Не передано имя параметра'}, 400
         departament = dbDepartament(name=params['name'])
         try:
             db.session.add(departament)
             db.session.commit()
         except Exception as e:
             db.session.rollback()
+            return {'msg': 'Ошибка БД'}, 500
+        return {}
+
+    @jwt_required()
+    @is_admin
+    def put(self):
+        params = request.json
+        if params.get('name') is None and params.get('id') is None: return {'msg': 'Переданы не все параметры'}
+        find_departament = dbDepartament.query.filter_by(id=params['id']).first()
+        if find_departament is None: return {'msg': 'Не найден отдел с таким id'}, 400
+        find_departament.name = params['name']
+        try:
+            find_departament.name = params['name']
+            db.session.commit()
+        except Exception as e:
             return {'msg': 'Ошибка БД'}, 500
         return {}
 
