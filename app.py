@@ -1,6 +1,6 @@
 import json
 
-from flask import Flask, session, request
+from flask import Flask, session, request, send_from_directory
 from flasgger import Swagger
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, decode_token
@@ -93,6 +93,11 @@ def before_request():
     except Exception as e:
         session['public_id'] = None
         session['is_admin'] = None
+
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.remove()
 
 
 if __name__ == '__main__':
