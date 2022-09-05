@@ -16,6 +16,7 @@ def is_admin(func):
         elif session['is_admin']:
             return func(*args, **kwargs)
         return {'msg': 'Вы не являетесь администратором'}, 403
+
     return wrapper
 
 
@@ -71,6 +72,19 @@ class RGroupArticle(Resource):
         except Exception as e:
             return {'msg': 'Внутренняя ошибка', 'e': str(e)}, 500
 
+    def delete(self, group_id):
+        find_group = dbGroupArticle.query.filter_by(id=group_id).first()
+
+        if find_group is None:
+            return {'msg': 'Запись с таким id не найдена'}, 400
+        try:
+            db.session.delete(find_group)
+            db.session.commit()
+            return {}
+
+        except Exception as e:
+            return {'msg': 'Внутренняя ошибка'}, 500
+
 
 class RArticle(Resource):
     @jwt_required()
@@ -102,12 +116,13 @@ class RArticle(Resource):
         params = request.json
         try:
             if params.get('title') is not None: find_article.title = params['title']
-            if params.get('description') is not None: find_article.title = params['description']
+            if params.get('description') is not None: find_article.description = params['description']
             if params.get('blogData') is not None:
-                find_article.title = params['blogData']
+                find_article.blog_data = json.dumps(params['blogData'])
             db.session.commit()
             return {}, 201
         except Exception as e:
+            print(e)
             return {'msg': 'Внутренняя ошибка'}, 500
 
     def delete(self, article_id):
@@ -130,6 +145,7 @@ class RArticles(Resource):
     """
         endpoint = '/article'
     """
+
     def __init__(self):
         public_id = session['public_id']
         self.current_user = dbUser.query.filter_by(public_id=public_id).one() if public_id is not None else None
@@ -210,6 +226,7 @@ class GetImageArticle(Resource):
         Endpoint этого ресурса находиться в основном приложении
         api.add_resource(GetImageArticle, '/upload/<string:path_dir>/<string:url_image>')
     """
+
     def get(self, url_image, path_dir):
         if path_dir == 'temp':
             if not os.path.exists(f'upload/temp/{url_image}'):

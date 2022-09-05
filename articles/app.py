@@ -11,8 +11,3 @@ api_db.add_resource(RArticle, '/article/<int:article_id>')
 api_db.add_resource(RGroupArticles, '/group-article')
 api_db.add_resource(RGroupArticle, '/group-article/<int:group_id>')
 api_db.add_resource(Index, '/')
-
-
-# @articles_blueprint.route('/')
-# def index():
-#     return 'asdasdasdasd'
