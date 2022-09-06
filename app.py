@@ -9,7 +9,7 @@ from flask_restful import Api
 
 from articles.app import articles_blueprint
 from config import database_uri, secret_key, debug
-from models import db, User as dbUser
+from models import db, User as dbUser, Article, Departament as dbDepartament
 from resource import UserLogin, UserRegistration, Index, Users, User, ProfileFoto, EditProfileFoto, Departament
 from articles.resource import UploadImageArticleTemp, GetImageArticle
 

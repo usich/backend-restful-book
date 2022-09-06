@@ -4,7 +4,8 @@ import uuid
 from flask_restful import Resource
 from flask import session, request, send_file
 from flask_jwt_extended import jwt_required
-from models import Article as dbArticle, User as dbUser, GroupArticle as dbGroupArticle, db, Role as dbRole
+from models import Article as dbArticle, User as dbUser, GroupArticle as dbGroupArticle, db, Role as dbRole, \
+    Tags as dbTags
 import os
 import shutil
 
@@ -96,6 +97,11 @@ class RArticle(Resource):
         find_article = dbArticle.query.filter_by(id=article_id).first()
         if find_article is None:
             return {'msg': 'Запись с таким id не найдена'}, 400
+        find_tags = [str(i) for i in find_article.tags]
+
+        search = dbArticle.query.filter(dbArticle.title.ilike("%"+"qwer ewr"+"%")).all()
+        print(search)
+
         data = {
             'id': find_article.id,
             'group': find_article.group if find_article.group is None else find_article.group.name,
@@ -106,6 +112,7 @@ class RArticle(Resource):
             'title': find_article.title,
             'description': find_article.description,
             'blogData': json.loads(find_article.blog_data),
+            'tags': find_tags
         }
         return data
 
@@ -119,6 +126,16 @@ class RArticle(Resource):
             if params.get('description') is not None: find_article.description = params['description']
             if params.get('blogData') is not None:
                 find_article.blog_data = json.dumps(params['blogData'])
+            if params.get('tags') is not None:
+                if len(find_article.tags) > 0:
+                    for i in find_article.tags:
+                        db.session.delete(i)
+                for j in params['tags']:
+                    add_tags = dbTags(tag_name=str(j), article_id=find_article.id)
+                    db.session.add(add_tags)
+                # find_article.tags = params['tags']
+                # print(params['tags'])
+
             db.session.commit()
             return {}, 201
         except Exception as e:
@@ -162,6 +179,8 @@ class RArticles(Resource):
             return {'msg': 'Не переданы параметры запроса'}, 400
         data = []
         for i in articles:
+            find_tags = dbTags.query.filter_by(article_id=i.id).all()
+            find_tags = [str(i) for i in find_tags]
             data.append({
                 'articleId': i.id,
                 'user': {
@@ -170,7 +189,8 @@ class RArticles(Resource):
                 },
                 'groupId': i.group_id,
                 'title': i.title,
-                'description': i.description
+                'description': i.description,
+                'tags': find_tags
             })
         return data
 
@@ -196,8 +216,16 @@ class RArticles(Resource):
 
             add_articles = dbArticle(user_id=user_id, group_id=group_id, title=title, description=description,
                                      blog_data=json.dumps(blog_data), departament_id=departament_id)
+
             db.session.add(add_articles)
             db.session.commit()
+            tags = params.get('tags')
+            if tags is not None and isinstance(tags, list):
+                if len(tags) != 0:
+                    for i in tags:
+                        add_tags = dbTags(tag_name=str(i), article_id=add_articles.id)
+                        db.session.add(add_tags)
+                        db.session.commit()
 
             return {}
         except Exception as e:
